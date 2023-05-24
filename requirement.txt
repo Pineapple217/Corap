@@ -7,6 +7,7 @@ html5lib==1.1
 idna==3.4
 iso8601==1.1.0
 pypika-tortoise==0.1.6
+python-dotenv==1.0.0
 pytz==2023.3
 requests==2.30.0
 six==1.16.0

@@ -1,5 +1,6 @@
 import datetime
 import logging
+import os
 import time
 from bs4 import BeautifulSoup
 import asyncio
@@ -7,6 +8,9 @@ import argparse
 from scrape import scrape
 from device_find import device_find
 from tortoise import Tortoise
+from dotenv import load_dotenv
+
+load_dotenv()
 
 logging.basicConfig(
     level=logging.INFO,
@@ -16,6 +20,12 @@ logging.basicConfig(
     ],
 )
 logger = logging.getLogger(__name__)
+
+DB_HOST = os.getenv("DB_HOST")
+DB_PORT = os.getenv("DB_PORT")
+DB_USER = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+DB_DATABASE = os.getenv("DB_DATABASE")
 
 
 async def init():
@@ -29,11 +39,11 @@ async def init():
                 "default": {
                     "engine": "tortoise.backends.asyncpg",
                     "credentials": {
-                        "host": "localhost",
-                        "port": "5432",
-                        "user": "corap",
-                        "password": "root",
-                        "database": "corap",
+                        "host": DB_HOST,
+                        "port": DB_PORT,
+                        "user": DB_USER,
+                        "password": DB_PASSWORD,
+                        "database": DB_DATABASE,
                     },
                 },
             },
