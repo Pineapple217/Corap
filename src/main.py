@@ -70,7 +70,7 @@ async def main():
         parser.print_help()
         return
     await init()
-    args.func()
+    await args.func()
 
     end = time.time()
     total_time = end - start
