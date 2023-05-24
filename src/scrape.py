@@ -3,6 +3,7 @@ from datetime import datetime
 import logging
 import re
 from bs4 import BeautifulSoup
+import pytz
 import requests
 import os
 from models import Scrape
@@ -40,7 +41,10 @@ async def scrape():
 
             title = page.find("h1").text.replace("Show Device ", "")
             time = page.find("h4").text.replace("Last update: ", "")
+            # time = datetime.strptime(time, "%d/%m/%Y %H:%M")
             time = datetime.strptime(time, "%d/%m/%Y %H:%M")
+            # time = pytz.timezone("Europe/Brussels").localize(time)
+
             deveui = (
                 page.find_all("p", string=re.compile("DevEUI:"))[0]
                 .text.replace("DevEUI:", "")

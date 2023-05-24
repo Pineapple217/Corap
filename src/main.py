@@ -26,16 +26,13 @@ DB_PORT = os.getenv("DB_PORT")
 DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
 DB_DATABASE = os.getenv("DB_DATABASE")
+TIMEZONE = os.getenv("TIMEZONE")
 
 
 async def init():
-    # Here we connect to a SQLite DB file.
-    # also specify the app name of "models"
-    # which contain models from "app.models"
     await Tortoise.init(
         config={
             "connections": {
-                # Dict format for connection
                 "default": {
                     "engine": "tortoise.backends.asyncpg",
                     "credentials": {
@@ -50,13 +47,11 @@ async def init():
             "apps": {
                 "corap": {
                     "models": ["models"],
-                    # If no default_connection specified, defaults to 'default'
                     "default_connection": "default",
                 }
             },
-            # "routers": ["path.router1", "path.router2"],
-            "use_tz": False,
-            "timezone": "UTC",
+            "use_tz": True,
+            "timezone": TIMEZONE,
         }
     )
     # Generate the schema
