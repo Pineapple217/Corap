@@ -2,13 +2,13 @@ import datetime
 import logging
 import os
 import time
-from bs4 import BeautifulSoup
 import asyncio
 import argparse
 from scrape import scrape
 from device_find import device_find
-from tortoise import Tortoise
 from dotenv import load_dotenv
+
+from repository import connect_db, close_db
 
 load_dotenv()
 
@@ -21,44 +21,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-DB_HOST = os.getenv("DB_HOST")
-DB_PORT = os.getenv("DB_PORT")
-DB_USER = os.getenv("DB_USER")
-DB_PASSWORD = os.getenv("DB_PASSWORD")
-DB_DATABASE = os.getenv("DB_DATABASE")
-TIMEZONE = os.getenv("TIMEZONE")
 
-
-async def init():
-    await Tortoise.init(
-        config={
-            "connections": {
-                "default": {
-                    "engine": "tortoise.backends.asyncpg",
-                    "credentials": {
-                        "host": DB_HOST,
-                        "port": DB_PORT,
-                        "user": DB_USER,
-                        "password": DB_PASSWORD,
-                        "database": DB_DATABASE,
-                    },
-                },
-            },
-            "apps": {
-                "corap": {
-                    "models": ["models"],
-                    "default_connection": "default",
-                }
-            },
-            "use_tz": True,
-            "timezone": TIMEZONE,
-        }
-    )
-    # Generate the schema
-    await Tortoise.generate_schemas()
-
-
-async def main():
+def main():
     start = time.time()
     parser = argparse.ArgumentParser(description="CORAP CLI")
 
@@ -74,9 +38,11 @@ async def main():
     if not hasattr(args, "func"):
         parser.print_help()
         return
-    await init()
-    await args.func()
+    # await db_init()
+    connect_db()
+    args.func()
 
+    close_db()
     end = time.time()
     total_time = end - start
     formatted_time = str(datetime.timedelta(seconds=total_time))
@@ -85,4 +51,4 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

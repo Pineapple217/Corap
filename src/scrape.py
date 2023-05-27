@@ -6,9 +6,9 @@ from bs4 import BeautifulSoup
 import pytz
 import requests
 import os
-from models import Scrape
-from tortoise.expressions import Q
-from tortoise.functions import Max
+from peewee import *
+
+from repository import Scrape
 
 
 logger = logging.getLogger(__name__)
@@ -23,11 +23,8 @@ def hashednames():
             yield hashedname
 
 
-async def scrape():
-    batch_id = (
-        await Scrape.annotate(batch_id=Max("batch_id")).first().values("batch_id")
-    )
-    batch_id = batch_id["batch_id"]
+def scrape():
+    batch_id = Scrape.select(fn.Max(Scrape.batch_id)).scalar()
     if batch_id is None:
         batch_id = 1
     else:
@@ -41,7 +38,6 @@ async def scrape():
 
             title = page.find("h1").text.replace("Show Device ", "")
             time = page.find("h4").text.replace("Last update: ", "")
-            # time = datetime.strptime(time, "%d/%m/%Y %H:%M")
             time = datetime.strptime(time, "%d/%m/%Y %H:%M")
             # time = pytz.timezone("Europe/Brussels").localize(time)
 
@@ -62,9 +58,8 @@ async def scrape():
         except Exception as e:
             logger.error(e)
             continue
-        logger.info(f"{title} {batch_id} {time} {deveui} {co2} {temp} {humidity}")
 
-        await Scrape.create(
+        s = Scrape.create(
             deveui=deveui,
             batch_id=batch_id,
             co2=co2,
@@ -72,3 +67,4 @@ async def scrape():
             humidity=humidity,
             time_updated=time,
         )
+        logger.info(repr(s))
