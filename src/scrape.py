@@ -3,9 +3,7 @@ from datetime import datetime
 import logging
 import re
 from bs4 import BeautifulSoup
-import pytz
 import requests
-import os
 from peewee import *
 
 from repository import Scrape

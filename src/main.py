@@ -1,8 +1,6 @@
 import datetime
 import logging
-import os
 import time
-import asyncio
 import argparse
 from scrape import scrape
 from device_find import device_find
