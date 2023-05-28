@@ -6,7 +6,7 @@ from bs4 import BeautifulSoup
 import requests
 from peewee import *
 
-from repository import Scrape
+from repository import Scrape, close_db, connect_db
 
 
 logger = logging.getLogger(__name__)
@@ -22,6 +22,7 @@ def hashednames():
 
 
 def scrape():
+    connect_db()
     batch_id = Scrape.select(fn.Max(Scrape.batch_id)).scalar()
     if batch_id is None:
         batch_id = 1
@@ -66,3 +67,4 @@ def scrape():
             time_updated=time,
         )
         logger.info(repr(s))
+    close_db()
