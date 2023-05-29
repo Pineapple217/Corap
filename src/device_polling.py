@@ -10,8 +10,6 @@ logger = logging.getLogger(__name__)
 URL = "https://education.thingsflow.eu/IAQ/DeviceByQR"
 HASHEDNAME = "b8004bde67a16c938f5ad35e92df5c26d53460229008b63b94598f74b35968e8"
 
-from repository import Scrape
-
 
 def polling_test():
     starttime = time.time()

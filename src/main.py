@@ -12,7 +12,7 @@ from device_polling import polling_test
 load_dotenv()
 
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format="%(asctime)s %(levelname)s: %(message)s",
     handlers=[
         logging.StreamHandler(),  # Output to stdout
