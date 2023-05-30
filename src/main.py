@@ -5,8 +5,9 @@ import argparse
 from scrape import scrape
 from device_find import device_find
 from dotenv import load_dotenv
+from devices_from_csv import main as import_devices
 
-from repository import connect_db, close_db
+from repository import db_init, close_db
 from device_polling import polling_test
 
 load_dotenv()
@@ -36,6 +37,11 @@ def main():
         "polling_test", help="Tests device polling rate"
     )
     device_find_parser.set_defaults(func=polling_test)
+
+    device_find_parser = subparsers.add_parser(
+        "import_devices", help="Imports devices form csv"
+    )
+    device_find_parser.set_defaults(func=import_devices)
 
     args = parser.parse_args()
 

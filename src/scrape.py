@@ -4,9 +4,9 @@ import logging
 import re
 from bs4 import BeautifulSoup
 import requests
-from peewee import *
+from peewee import fn
 
-from repository import Scrape, close_db, connect_db
+from repository import Scrape, close_db, db_init, Device
 
 
 logger = logging.getLogger(__name__)
@@ -14,15 +14,11 @@ URL = "https://education.thingsflow.eu/IAQ/DeviceByQR"
 
 
 def hashednames():
-    with open("./src/ids.csv", "r") as file:
-        reader = csv.DictReader(file)
-        for row in reader:
-            hashedname = row["hashedname"]
-            yield hashedname
+    return Device.select(Device.hashedname).scalars()
 
 
 def scrape():
-    connect_db()
+    db_init()
     batch_id = Scrape.select(fn.Max(Scrape.batch_id)).scalar()
     if batch_id is None:
         batch_id = 1

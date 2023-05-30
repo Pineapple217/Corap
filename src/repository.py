@@ -48,10 +48,18 @@ class Scrape(BaseModel):
         )
 
 
-def connect_db():
-    logger.info("Connection to DB...")
+class Device(BaseModel):
+    deveui = CharField(max_length=16, primary_key=True)
+    name = CharField()
+    hashedname = CharField(max_length=64)
+
+    def url(self):
+        return f"https://education.thingsflow.eu/IAQ/DeviceByQR?hashedname={self.hashedname}"
+
+
+def db_init():
     # db.set_time_zone(TIMEZONE)
-    db.create_tables([Scrape], safe=True)
+    db.create_tables([Scrape, Device], safe=True)
 
 
 def seed_db():
@@ -61,6 +69,3 @@ def seed_db():
 def close_db():
     logger.info("clossing db")
     db.close()
-
-
-connect_db()

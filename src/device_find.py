@@ -49,7 +49,7 @@ def device_find():
     filename = f"./csv/{formatted_datetime}.csv"
     file = open(filename, mode="w", newline="")
     writer = csv.writer(file)
-    writer.writerow(["name", "hashedname", "DevEUI"])
+    writer.writerow(["name", "hashedname", "deveui"])
     print(f"New CSV file '{filename}' has been created.")
 
     with ThreadPoolExecutor(max_workers=1) as executor:
