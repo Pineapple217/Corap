@@ -52,7 +52,7 @@ def device_find():
     writer.writerow(["name", "hashedname", "deveui"])
     print(f"New CSV file '{filename}' has been created.")
 
-    with ThreadPoolExecutor(max_workers=1) as executor:
-        while True:
-            deveui = str(hex(int(deveui, 16) + 1))[2:].upper()
-            executor.submit(test_url, writer, deveui)
+    # with ThreadPoolExecutor(max_workers=1) as executor:
+    while True:
+        deveui = str(hex(int(deveui, 16) + 1))[2:].upper()
+        test_url(writer, deveui)

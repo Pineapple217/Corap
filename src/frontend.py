@@ -52,7 +52,11 @@ def main():
         )
         st.plotly_chart(fig_hum, theme="streamlit", use_container_width=True)
 
+    scrape_count = Scrape.select().count()
+    st.metric("Scrape count", scrape_count)
+
     st.dataframe(scrapes, width=800, height=800)
+    st.dataframe(devices, width=800, height=800)
 
 
 if __name__ == "__main__":
