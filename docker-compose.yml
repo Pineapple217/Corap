@@ -1,0 +1,33 @@
+version: "3.8"
+
+services:
+  corap:
+    container_name: py_scraper
+    build:
+      context: .
+    depends_on:
+      - postgres-db
+    restart: unless-stopped
+    environment:
+      DB_HOST: "postgres-db"
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      TZ: "Europe/Brussels"
+
+  postgres-db:
+    image: postgres:15.2-alpine
+    container_name: postgres-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - "9979:5432"
+    volumes:
+      - db:/var/lib/postgresql/data
+      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
+
+volumes:
+  db:
