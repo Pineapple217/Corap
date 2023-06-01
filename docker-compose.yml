@@ -10,7 +10,9 @@ services:
     restart: unless-stopped
     environment:
       DB_HOST: "postgres-db"
+      DB_DATABASE: ${DB_DATABASE}
       DB_USER: ${DB_USER}
+      DB_PORT: ${DB_PORT}
       DB_PASSWORD: ${DB_PASSWORD}
       TZ: "Europe/Brussels"
 
@@ -21,7 +23,7 @@ services:
     environment:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_DB: ${DB_DATABASE}
     ports:
       - "9979:5432"
     volumes:
