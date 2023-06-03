@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 from pprint import pprint
 import streamlit as st
 from peewee import *
@@ -7,7 +8,7 @@ import plotly.express as px
 
 
 def main():
-    db_init()
+    st.set_page_config(layout="wide")
 
     rows = Scrape.select().dicts()
     scrapes = pd.DataFrame(rows).set_index("id")
@@ -18,42 +19,16 @@ def main():
     last_scraped = Scrape.select(fn.Max(Scrape.time_scraped)).scalar()
     st.metric("Last scraped", last_scraped.strftime("%Y-%m-%d %H:%M:%S"))
 
-    device = st.selectbox(
-        "device",
-        devices["deveui"],
-        format_func=lambda d: devices[devices["deveui"] == d]["name"].iloc[0],
-    )
-    tab1, tab2, tab3 = st.tabs(["Temp", "Co2", "Humidity"])
-
-    with tab1:
-        fig_temp = px.line(
-            scrapes[scrapes["deveui"] == device],
-            x="time_updated",
-            y="temp",
-            markers=True,
-        )
-        st.plotly_chart(fig_temp, theme="streamlit", use_container_width=True)
-
-    with tab2:
-        fig_co2 = px.line(
-            scrapes[scrapes["deveui"] == device],
-            x="time_updated",
-            y="co2",
-            markers=True,
-        )
-        st.plotly_chart(fig_co2, theme="streamlit", use_container_width=True)
-
-    with tab3:
-        fig_hum = px.line(
-            scrapes[scrapes["deveui"] == device],
-            x="time_updated",
-            y="humidity",
-            markers=True,
-        )
-        st.plotly_chart(fig_hum, theme="streamlit", use_container_width=True)
-
     scrape_count = Scrape.select().count()
     st.metric("Scrape count", scrape_count)
+
+    delta_datetime = datetime.now() - timedelta(hours=24)
+    scrape_count_delta = (
+        Scrape.select().where(Scrape.time_scraped > delta_datetime).count()
+    )
+    scrape_accuracy = (scrape_count_delta) / (Device.select().count() * 4 * 24)
+    st.metric("Accuracy", f"{round(scrape_accuracy * 100, 2)} %")
+    st.metric("Delta scrapecount", scrape_count_delta)
 
     st.dataframe(scrapes, width=800, height=800)
     st.dataframe(devices, width=800, height=800)

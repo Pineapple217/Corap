@@ -17,8 +17,12 @@ def hashednames():
     return Device.select(Device.hashedname).scalars()
 
 
+MAX_RETRIES = 3
+TIMEOUT_TIME = 10
+
+
 def scrape():
-    db_init()
+    logger.info("Start scraping")
     batch_id = Scrape.select(fn.Max(Scrape.batch_id)).scalar()
     if batch_id is None:
         batch_id = 1
@@ -28,7 +32,18 @@ def scrape():
     for hashedname in hashednames():
         try:
             query = {"hashedname": hashedname}
-            r = requests.post(URL, params=query)
+            for i in range(MAX_RETRIES):
+                try:
+                    r = requests.post(URL, params=query, timeout=TIMEOUT_TIME)
+                    break
+                except requests.exceptions.ReadTimeout as e:
+                    logger.warning(
+                        f"Device {hashedname} timed out. Retrying ({i+1}/{MAX_RETRIES})..."
+                    )
+                    continue
+            else:
+                logger.error(f"Failed to pull {hashedname}")
+                continue
             page = BeautifulSoup(r.content, "html5lib")
 
             title = page.find("h1").text.replace("Show Device ", "")
@@ -63,4 +78,4 @@ def scrape():
             time_updated=time,
         )
         logger.info(repr(s))
-    close_db()
+    logger.info("scraping done")

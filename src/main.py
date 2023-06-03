@@ -9,6 +9,7 @@ from devices_from_csv import main as import_devices
 
 from repository import db_init, close_db
 from device_polling import polling_test
+from schedular import run_scheduler
 
 load_dotenv()
 
@@ -27,21 +28,27 @@ def main():
     parser = argparse.ArgumentParser(description="CORAP CLI")
 
     subparsers = parser.add_subparsers(dest="command")
-    scrape_parser = subparsers.add_parser("scrape", help="Scrape data")
-    scrape_parser.set_defaults(func=scrape)
+    subparsers.add_parser("scrape", help="Scrape data").set_defaults(func=scrape)
 
-    device_find_parser = subparsers.add_parser("device_find", help="Find devices")
-    device_find_parser.set_defaults(func=device_find)
+    subparsers.add_parser("device_find", help="Find devices").set_defaults(
+        func=device_find
+    )
 
-    device_find_parser = subparsers.add_parser(
+    subparsers.add_parser(
         "polling_test", help="Tests device polling rate"
-    )
-    device_find_parser.set_defaults(func=polling_test)
+    ).set_defaults(func=polling_test)
 
-    device_find_parser = subparsers.add_parser(
+    subparsers.add_parser(
         "import_devices", help="Imports devices form csv"
+    ).set_defaults(func=import_devices)
+
+    subparsers.add_parser("scheduler", help="Run the scheduler").set_defaults(
+        func=run_scheduler
     )
-    device_find_parser.set_defaults(func=import_devices)
+
+    subparsers.add_parser("db_init", help="Create database and tables").set_defaults(
+        func=db_init
+    )
 
     args = parser.parse_args()
 

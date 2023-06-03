@@ -13,19 +13,21 @@ DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
 DB_DATABASE = os.getenv("DB_DATABASE")
 # TIMEZONE = os.getenv("TIMEZONE")
-conn = psycopg2.connect(user=DB_USER, password=DB_PASSWORD, host=DB_HOST, port=DB_PORT)
+
 
 logger = logging.getLogger(__name__)
 
 db = PostgresqlDatabase(
     host=DB_HOST, port=DB_PORT, user=DB_USER, password=DB_PASSWORD, database=DB_DATABASE
 )
-conn.autocommit = True
-cursor = conn.cursor()
-sql = f"CREATE database [IF NOT EXISTS] {DB_DATABASE}"
-cursor.execute(sql)
-print("Database has been created successfully !!")
-conn.close()
+
+# conn = psycopg2.connect(user=DB_USER, password=DB_PASSWORD, host=DB_HOST, port=DB_PORT)
+# conn.autocommit = True
+# cursor = conn.cursor()
+# sql = f"CREATE DATABASE IF NOT EXISTS {DB_DATABASE}"
+# cursor.execute(sql)
+# print("Database has been created successfully !!")
+# conn.close()
 
 
 class BaseModel(Model):
@@ -66,8 +68,22 @@ class Device(BaseModel):
 
 
 def db_init():
+    conn = psycopg2.connect(
+        user=DB_USER, password=DB_PASSWORD, host=DB_HOST, port=DB_PORT
+    )
+    conn.autocommit = True
+    cursor = conn.cursor()
+    sql = f"""
+    SELECT 'CREATE DATABASE {DB_DATABASE}'
+    WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '{DB_DATABASE}')
+    """
+    cursor.execute(sql)
+    logger.info(f"Database '{DB_DATABASE}' created successfully")
+    conn.close()
     # db.set_time_zone(TIMEZONE)
+
     db.create_tables([Scrape, Device], safe=True)
+    logger.info(f"Tables created successfully")
 
 
 def seed_db():
