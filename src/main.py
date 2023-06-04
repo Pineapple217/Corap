@@ -9,7 +9,7 @@ from devices_from_csv import main as import_devices
 
 from repository import db_init, close_db
 from device_polling import polling_test
-from schedular import run_scheduler
+from scheduler import run_scheduler
 
 load_dotenv()
 
