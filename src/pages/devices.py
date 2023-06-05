@@ -19,13 +19,16 @@ def main():
     rows = Device.select().dicts()
     devices = pd.DataFrame(rows).sort_values(["name"])
 
-    device = st.selectbox(
+    device_deveui = st.selectbox(
         "device",
         devices["deveui"],
         format_func=lambda d: devices[devices["deveui"] == d]["name"].iloc[0],
         label_visibility="collapsed",
     )
-    dev_scrapes = scrapes[scrapes["deveui"] == device].sort_values(
+    device = Device.get(Device.deveui == device_deveui)
+
+    st.write(f"[Scrape source]({device.url()})")
+    dev_scrapes = scrapes[scrapes["deveui"] == device_deveui].sort_values(
         "time_scraped", ascending=False
     )
 

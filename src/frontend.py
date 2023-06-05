@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from pprint import pprint
+import schedule
 import streamlit as st
 from peewee import *
 from repository import Scrape, close_db, db_init, Device
@@ -30,8 +31,21 @@ def main():
     st.metric("Accuracy", f"{round(scrape_accuracy * 100, 2)} %")
     st.metric("Delta scrapecount", scrape_count_delta)
 
+    defect_devices_deveui = (
+        Scrape.select(Scrape.deveui)
+        .where(Scrape.temp == 0 and Scrape.co2 == 0 and Scrape.humidity == 0)
+        .distinct()
+    )
+    defect_devices = Device.select().where(Device.deveui.in_(defect_devices_deveui))
+    defect_devices_df = pd.DataFrame(defect_devices.dicts())
+
+    st.title("Defecitve Devices")
+    st.dataframe(defect_devices_df, width=900)
+
+    # st.json(schedule.get_jobs())
+
     st.dataframe(scrapes, width=800, height=800)
-    st.dataframe(devices, width=800, height=800)
+    st.dataframe(devices, width=900, height=800)
 
 
 if __name__ == "__main__":

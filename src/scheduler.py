@@ -20,8 +20,8 @@ def run_threaded(job_func):
 def run_scheduler():
     logger.info("Running scheduler")
 
-    j = schedule.every(15).minutes.do(run_threaded, scrape)
-    logger.info(j)
+    schedule.every(15).minutes.do(run_threaded, scrape)
+    logger.info(schedule.get_jobs())
 
     run_threaded(scrape)
     while True:
