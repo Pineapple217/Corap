@@ -11,7 +11,7 @@ def main():
 
     st.title("Device info")
 
-    delta_datetime = datetime.now() - timedelta(hours=24)
+    delta_datetime = datetime.now() - timedelta(days=2)
     rows = Scrape.select().where(Scrape.time_scraped > delta_datetime).dicts()
     scrapes = pd.DataFrame(rows).set_index("id")
     scrapes["temp"] = scrapes["temp"].astype(float)
@@ -59,6 +59,7 @@ def main():
     tab1, tab2, tab3 = st.tabs(["Temp", "Co2", "Humidity"])
 
     with tab1:
+        st.metric("volitility", round(dev_scrapes["temp"].std(), 4))
         fig_temp = px.line(
             dev_scrapes,
             x="time_scraped",
@@ -68,6 +69,7 @@ def main():
         st.plotly_chart(fig_temp, theme="streamlit", use_container_width=True)
 
     with tab2:
+        st.metric("volitility", round(dev_scrapes["co2"].std(), 4))
         fig_co2 = px.line(
             dev_scrapes,
             x="time_scraped",
@@ -91,6 +93,7 @@ def main():
         )
 
     with tab3:
+        st.metric("volitility", round(dev_scrapes["humidity"].std(), 4))
         fig_hum = px.line(
             dev_scrapes,
             x="time_scraped",
