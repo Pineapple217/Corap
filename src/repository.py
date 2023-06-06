@@ -74,3 +74,11 @@ def seed_db():
 def close_db():
     logger.info("clossing db")
     db.close()
+
+
+def get_db_size() -> str:
+    return str(
+        db.execute_sql(
+            f"SELECT pg_size_pretty(pg_database_size('{DB_DATABASE}'));"
+        ).fetchone()[0]
+    )
