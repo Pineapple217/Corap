@@ -1,14 +1,14 @@
 import streamlit as st
 from peewee import *
-from repository import Scrape, close_db, db_init, Device
+from repository import Scrape, Device
 import pandas as pd
 import plotly.express as px
 from datetime import datetime, timedelta
 
 
 @st.cache_data(ttl=60 * 5, show_spinner="Fetching data")
-def get_device_srapes(deveui):
-    delta_datetime = datetime.now() - timedelta(days=1)
+def get_device_srapes(deveui, days):
+    delta_datetime = datetime.now() - timedelta(days=days)
     rows = (
         Scrape.select()
         .where(Scrape.time_scraped > delta_datetime)
@@ -40,11 +40,13 @@ def main():
         format_func=lambda d: devices[devices["deveui"] == d]["name"].iloc[0],
         label_visibility="collapsed",
     )
+
+    days = st.selectbox("Range (days)", [1, 3, 10, 100])
     device = Device.get(Device.deveui == device_deveui)
 
     st.write(f"[Scrape source]({device.url()})")
 
-    dev_scrapes = get_device_srapes(device_deveui)
+    dev_scrapes = get_device_srapes(device_deveui, days)
 
     col1, col2, col3 = st.columns(3)
 
