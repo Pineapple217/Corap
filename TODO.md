@@ -4,3 +4,5 @@
 - mem usage verminderen
 - errors if db is empty
 - beter scrape error
+
+- [faster-then-requests](https://github.com/juancarlospaco/faster-than-requests) for more speed
