@@ -6,18 +6,33 @@ import plotly.express as px
 from datetime import datetime, timedelta
 
 
+@st.cache_data(ttl=60 * 5, show_spinner="Fetching data")
+def get_device_srapes(deveui):
+    delta_datetime = datetime.now() - timedelta(days=1)
+    rows = (
+        Scrape.select()
+        .where(Scrape.time_scraped > delta_datetime)
+        .where(Scrape.deveui == deveui)
+        .dicts()
+    )
+    scrapes = pd.DataFrame(rows).set_index("id")
+    scrapes["temp"] = scrapes["temp"].astype(float)
+    return scrapes
+
+
+@st.cache_data(ttl=60 * 5, show_spinner="Fething devices")
+def get_devices():
+    rows = Device.select().dicts()
+    devices = pd.DataFrame(rows).sort_values(["name"])
+    return devices
+
+
 def main():
     st.set_page_config(layout="wide")
 
     st.title("Device info")
 
-    delta_datetime = datetime.now() - timedelta(days=2)
-    rows = Scrape.select().where(Scrape.time_scraped > delta_datetime).dicts()
-    scrapes = pd.DataFrame(rows).set_index("id")
-    scrapes["temp"] = scrapes["temp"].astype(float)
-
-    rows = Device.select().dicts()
-    devices = pd.DataFrame(rows).sort_values(["name"])
+    devices = get_devices()
 
     device_deveui = st.selectbox(
         "device",
@@ -28,9 +43,8 @@ def main():
     device = Device.get(Device.deveui == device_deveui)
 
     st.write(f"[Scrape source]({device.url()})")
-    dev_scrapes = scrapes[scrapes["deveui"] == device_deveui].sort_values(
-        "time_scraped", ascending=False
-    )
+
+    dev_scrapes = get_device_srapes(device_deveui)
 
     col1, col2, col3 = st.columns(3)
 
