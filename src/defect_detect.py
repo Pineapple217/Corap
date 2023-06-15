@@ -27,3 +27,4 @@ def defect_detect():
             continue
         defects.append(dev_id)
     logger.info(f"Defective devices (count: {len(defects)}): {defects}")
+    return defects
