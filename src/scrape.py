@@ -14,10 +14,11 @@ URL = "https://education.thingsflow.eu/IAQ/DeviceByQR"
 
 
 def hashednames():
-    return Device.select(Device.hashedname).scalars()
+    return Device.select(Device.hashedname, Device.deveui).tuples()
 
 
-MAX_RETRIES = 3
+MAX_REQUEST_RETRIES = 3
+MAX_SCRAPE_RETRIES = 3
 TIMEOUT_TIME = 10
 
 
@@ -29,44 +30,52 @@ def scrape():
     else:
         batch_id += 1
     logger.info(f"Batch id: {batch_id}")
-    for hashedname in hashednames():
-        try:
-            query = {"hashedname": hashedname}
-            for i in range(MAX_RETRIES):
+
+    for hashedname, deveui in hashednames():
+        query = {"hashedname": hashedname}
+        for i in range(MAX_SCRAPE_RETRIES):
+            for j in range(MAX_REQUEST_RETRIES):
                 try:
                     r = requests.post(URL, params=query, timeout=TIMEOUT_TIME)
                     break
                 except requests.exceptions.ReadTimeout as e:
                     logger.warning(
-                        f"Device {hashedname} timed out. Retrying ({i+1}/{MAX_RETRIES})..."
+                        f"Device {deveui} timed out. Retrying ({j+1}/{MAX_REQUEST_RETRIES})..."
                     )
                     continue
             else:
-                logger.error(f"Failed to pull {hashedname}")
+                logger.error(f"Failed to pull {deveui} due to Timeouts")
                 continue
-            page = BeautifulSoup(r.content, "html5lib")
 
-            title = page.find("h1").text.replace("Show Device ", "")
-            time = page.find("h4").text.replace("Last update: ", "")
-            time = datetime.strptime(time, "%d/%m/%Y %H:%M")
-            # time = pytz.timezone("Europe/Brussels").localize(time)
+            try:
+                page = BeautifulSoup(r.content, "html5lib")
 
-            deveui = (
-                page.find_all("p", string=re.compile("DevEUI:"))[0]
-                .text.replace("DevEUI:", "")
-                .strip()
-            )
+                title = page.find("h1").text.replace("Show Device ", "")
+                time = page.find("h4").text.replace("Last update: ", "")
+                time = datetime.strptime(time, "%d/%m/%Y %H:%M")
 
-            table = page.find("div", attrs={"class": "row"})
-            data = table.findAll(
-                "div",
-                attrs={"class": "card-body"},
-            )
-            co2 = int(data[0].text.strip())
-            temp = data[1].text.strip().replace("°C", "")
-            humidity = int(data[2].text.strip().replace("%", ""))
-        except Exception as e:
-            logger.error(e)
+                deveui = (
+                    page.find_all("p", string=re.compile("DevEUI:"))[0]
+                    .text.replace("DevEUI:", "")
+                    .strip()
+                )
+
+                table = page.find("div", attrs={"class": "row"})
+                data = table.findAll(
+                    "div",
+                    attrs={"class": "card-body"},
+                )
+                co2 = int(data[0].text.strip())
+                temp = data[1].text.strip().replace("°C", "")
+                humidity = int(data[2].text.strip().replace("%", ""))
+                break
+            except AttributeError as e:
+                logger.warning(
+                    f"{deveui} {e}. Retrying ({i+1}/{MAX_SCRAPE_RETRIES})..."
+                )
+                continue
+        else:
+            logger.error(f"Failed to pull {deveui} due to AttributeErrors")
             continue
 
         s = Scrape.create(
