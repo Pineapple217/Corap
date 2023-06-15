@@ -34,18 +34,29 @@ def main():
 
     devices = get_devices()
 
-    device_deveui = st.selectbox(
-        "device",
-        devices["deveui"],
-        format_func=lambda d: devices[devices["deveui"] == d]["name"].iloc[0],
-        label_visibility="collapsed",
-    )
+    tab1, tab2 = st.tabs(["By name", "By deveui"])
+    device = None
+    with tab1:
+        device_deveui = st.selectbox(
+            "device",
+            devices["deveui"],
+            format_func=lambda d: devices[devices["deveui"] == d]["name"].iloc[0],
+            label_visibility="collapsed",
+        )
+        device = Device.get(Device.deveui == device_deveui)
+
+    with tab2:
+        device_deveui = st.text_input(
+            "deveui", value=device_deveui, label_visibility="collapsed"
+        )
+        try:
+            device = Device.get(Device.deveui == device_deveui)
+        except:
+            st.stop()
 
     days = st.selectbox("Range (days)", [1, 3, 10, 100])
-    device = Device.get(Device.deveui == device_deveui)
 
     st.write(f"[Scrape source]({device.url()})")
-
     dev_scrapes = get_device_srapes(device_deveui, days)
 
     col1, col2, col3 = st.columns(3)
