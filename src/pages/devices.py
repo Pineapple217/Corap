@@ -15,7 +15,7 @@ def get_device_srapes(deveui, days):
         .where(Scrape.deveui == deveui)
         .dicts()
     )
-    scrapes = pd.DataFrame(rows).set_index("id")
+    scrapes = pd.DataFrame(rows).set_index("id").sort_values(by=["time_scraped"])
     scrapes["temp"] = scrapes["temp"].astype(float)
     return scrapes
 
