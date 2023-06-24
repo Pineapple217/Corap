@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime, timedelta
 import logging
 import os
 from peewee import *
@@ -36,7 +36,42 @@ class Scrape(BaseModel):
     temp = DecimalField(max_digits=4, decimal_places=1)
     humidity = SmallIntegerField()
     time_updated = DateTimeField()
-    time_scraped = DateTimeField(default=datetime.datetime.now)
+    time_scraped = DateTimeField(default=datetime.now)
+
+    def get_missed_data(start_time, end_time, distinct=True):
+        columns = (
+            "DISTINCT ON (current.deveui, previous.time_updated)" if distinct else ""
+        )
+        cursor = db.execute_sql(
+            f"""
+        SELECT
+            {columns}
+            previous.deveui AS deveui,
+            previous.time_updated AS previous_time_updated,
+            current.time_updated AS current_time_updated
+        FROM
+            scrape AS current
+        LEFT JOIN
+            scrape AS previous ON previous.deveui = current.deveui
+            AND previous.time_updated = (
+                SELECT MAX(time_updated)
+                FROM scrape
+                WHERE deveui = current.deveui
+                AND time_updated < current.time_updated
+            )
+        WHERE
+            current.time_updated - previous.time_updated > interval '15 minutes'
+            AND current.time_updated >= %s
+            AND current.time_updated <= %s
+        ORDER BY
+		    current.deveui, previous.time_updated;
+        """,
+            (
+                end_time.strftime("%Y-%m-%d %H:%M:%S"),
+                start_time.strftime("%Y-%m-%d %H:%M:%S"),
+            ),
+        )
+        return cursor.fetchall()
 
     class Meta:
         db_table = "scrape"

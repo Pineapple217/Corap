@@ -92,7 +92,9 @@ def main():
             x="time_scraped",
             y="temp",
             markers=True,
+            hover_data=["temp", "time_scraped", "time_updated"],
         )
+
         st.plotly_chart(fig_temp, theme="streamlit", use_container_width=True)
 
     with tab2:
@@ -128,6 +130,19 @@ def main():
             markers=True,
         )
         st.plotly_chart(fig_hum, theme="streamlit", use_container_width=True)
+
+    dev_scrapes["m_delta"] = (
+        dev_scrapes["time_updated"]
+        - dev_scrapes["time_scraped"]
+        + pd.to_datetime("1970/01/01")
+    )
+    fig_hum = px.line(
+        dev_scrapes,
+        x="time_scraped",
+        y="m_delta",
+        markers=True,
+    )
+    st.plotly_chart(fig_hum, theme="streamlit", use_container_width=True)
 
 
 if __name__ == "__main__":
