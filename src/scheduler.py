@@ -1,11 +1,32 @@
 import logging
+import os
 import threading
-import schedule
-import time
+from dotenv import load_dotenv
+from sqlalchemy import URL
+from apscheduler.schedulers.blocking import BlockingScheduler
+
 
 from scrape import scrape
 
 logger = logging.getLogger(__name__)
+
+
+load_dotenv()
+DB_HOST = os.getenv("DB_HOST")
+DB_PORT = os.getenv("DB_PORT")
+DB_USER = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+DB_DATABASE = os.getenv("DB_DATABASE")
+
+db_url = URL.create(
+    "postgresql+psycopg2",
+    username=DB_USER,
+    password=DB_PASSWORD,
+    host=DB_HOST,
+    database=DB_DATABASE,
+    port=DB_PORT,
+)
+scheduler = BlockingScheduler()
 
 
 def job():
@@ -19,11 +40,8 @@ def run_threaded(job_func):
 
 def run_scheduler():
     logger.info("Running scheduler")
-
-    schedule.every(15).minutes.do(run_threaded, scrape)
-    logger.info(schedule.get_jobs())
-
-    run_threaded(scrape)
-    while True:
-        schedule.run_pending()
-        time.sleep(1)
+    scheduler.add_jobstore("sqlalchemy", url=db_url)
+    scheduler.add_job(
+        scrape, "cron", minute="*/15", name="scrape", id="100", replace_existing=True
+    )
+    scheduler.start()
