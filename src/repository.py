@@ -95,10 +95,19 @@ class Device(BaseModel):
         return f"https://education.thingsflow.eu/IAQ/DeviceByQR?hashedname={self.hashedname}"
 
 
+class AnalyseDevice(BaseModel):
+    device = ForeignKeyField(Device)
+    inserted_at = DateTimeField(default=datetime.now)
+    is_defect = BooleanField(default=False)
+
+    class Meta:
+        db_table = "analyse_device"
+
+
 def db_init():
     # db.set_time_zone(TIMEZONE)
 
-    db.create_tables([Scrape, Device], safe=True)
+    db.create_tables([Scrape, Device, AnalyseDevice], safe=True)
     logger.info(f"Tables created successfully")
 
 

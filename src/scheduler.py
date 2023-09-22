@@ -4,6 +4,7 @@ import threading
 from dotenv import load_dotenv
 from sqlalchemy import URL
 from apscheduler.schedulers.blocking import BlockingScheduler
+import analyse_device
 
 
 from scrape import scrape
@@ -43,5 +44,13 @@ def run_scheduler():
     scheduler.add_jobstore("sqlalchemy", url=db_url)
     scheduler.add_job(
         scrape, "cron", minute="*/15", name="scrape", id="100", replace_existing=True
+    )
+    scheduler.add_job(
+        analyse_device.analyse,
+        "cron",
+        minute="5-59/15",
+        name="analyse_device",
+        id="1000",
+        replace_existing=True,
     )
     scheduler.start()

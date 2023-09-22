@@ -10,7 +10,6 @@ from devices_from_csv import main as import_devices
 from repository import db_init, close_db
 from device_polling import polling_test
 from scheduler import run_scheduler
-from defect_detect import defect_detect
 
 load_dotenv()
 
@@ -50,10 +49,6 @@ def main():
     subparsers.add_parser("db_init", help="Create database and tables").set_defaults(
         func=db_init
     )
-
-    subparsers.add_parser(
-        "defect_detect", help="Detects devices that look defective"
-    ).set_defaults(func=defect_detect)
 
     args = parser.parse_args()
 

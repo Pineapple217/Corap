@@ -4,7 +4,7 @@ import numpy as np
 
 import pandas as pd
 
-from repository import Scrape
+from repository import Scrape, Device, AnalyseDevice
 
 logger = logging.getLogger(__name__)
 
@@ -28,3 +28,18 @@ def defect_detect():
         defects.append(dev_id)
     logger.info(f"Defective devices (count: {len(defects)}): {defects}")
     return defects
+
+
+def analyse():
+    olds = [r.id for r in AnalyseDevice.select()]
+    defective_devices_ids = defect_detect()
+    for device in Device.select(Device.deveui):
+        if device.deveui in defective_devices_ids:
+            AnalyseDevice.create(device=device, is_defect=True)
+        else:
+            AnalyseDevice.create(device=device, is_defect=False)
+    AnalyseDevice.delete().where(AnalyseDevice.id.in_(olds)).execute()
+
+
+if __name__ == "__main__":
+    analyse()
