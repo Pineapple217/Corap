@@ -7,7 +7,6 @@ logger = logging.getLogger(__name__)
 
 
 def main():
-    db_init()
     logger.info("importing csv...")
     devices = []
     with open("./devs.csv", "r") as file:

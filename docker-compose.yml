@@ -2,10 +2,12 @@ version: "3.8"
 
 networks:
   database-net:
+  proxy-network:
+    external: true
+    name: proxy-network
 
 services:
-  corap:
-    container_name: py_scraper
+  scraper:
     build:
       context: .
     depends_on:
@@ -22,9 +24,31 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       TZ: "Europe/Brussels"
 
+  webserver:
+    build:
+      context: ./Corap-web/.
+    command: ./app -listen "0.0.0.0" -prod
+    depends_on:
+      - postgres-db
+    restart: unless-stopped
+    networks:
+      - database-net
+      - proxy-network
+    ports:
+      - "3000:3000"
+    environment:
+      DB_HOST: "postgres-db"
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_DATABASE}
+      DB_PORT: ${DB_PORT}
+    volumes:
+      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
+
   postgres-db:
-    image: postgres:15.2-alpine
-    container_name: postgres-db
+    build:
+      context: ./db/.
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${DB_USER}

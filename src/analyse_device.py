@@ -4,7 +4,7 @@ import numpy as np
 
 import pandas as pd
 
-from repository import Scrape, Device, AnalyseDevice
+from repository import Scrape, Device, AnalysisDevice
 
 logger = logging.getLogger(__name__)
 
@@ -31,14 +31,14 @@ def defect_detect():
 
 
 def analyse():
-    olds = [r.id for r in AnalyseDevice.select()]
+    olds = [r.id for r in AnalysisDevice.select()]
     defective_devices_ids = defect_detect()
     for device in Device.select(Device.deveui):
         if device.deveui in defective_devices_ids:
-            AnalyseDevice.create(device=device, is_defect=True)
+            AnalysisDevice.create(device=device, is_defect=True)
         else:
-            AnalyseDevice.create(device=device, is_defect=False)
-    AnalyseDevice.delete().where(AnalyseDevice.id.in_(olds)).execute()
+            AnalysisDevice.create(device=device, is_defect=False)
+    AnalysisDevice.delete().where(AnalysisDevice.id.in_(olds)).execute()
 
 
 if __name__ == "__main__":

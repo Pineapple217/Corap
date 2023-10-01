@@ -8,4 +8,6 @@ RUN pip install -r requirements.txt
 COPY entrypoint.sh /entrypoint.sh
 COPY ./src /app
 
+COPY devs.csv /
+
 ENTRYPOINT ["sh", "/entrypoint.sh"]

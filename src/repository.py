@@ -95,20 +95,50 @@ class Device(BaseModel):
         return f"https://education.thingsflow.eu/IAQ/DeviceByQR?hashedname={self.hashedname}"
 
 
-class AnalyseDevice(BaseModel):
+class AnalysisDevice(BaseModel):
     device = ForeignKeyField(Device)
     inserted_at = DateTimeField(default=datetime.now)
     is_defect = BooleanField(default=False)
 
     class Meta:
-        db_table = "analyse_device"
+        db_table = "analysis_devices"
+
+
+class AnalysisMissedData(BaseModel):
+    deveui = CharField()
+    time_updated = DateTimeField()
+    time_scraped = DateTimeField()
+
+    class Meta:
+        db_table = "analysis_missed_data"
 
 
 def db_init():
     # db.set_time_zone(TIMEZONE)
 
-    db.create_tables([Scrape, Device, AnalyseDevice], safe=True)
+    db.create_tables([Scrape, Device, AnalysisDevice], safe=True)
     logger.info(f"Tables created successfully")
+    logger.info(f"Creating indexes")
+    db.execute_sql(
+        """
+            CREATE INDEX IF NOT EXISTS time_updated
+            ON public.scrape USING btree
+            (time_updated ASC NULLS LAST);
+        """
+    )
+    db.execute_sql(
+        """
+            CREATE INDEX IF NOT EXISTS time_scraped
+            ON public.scrape USING btree
+            (time_scraped DESC NULLS FIRST, deveui ASC NULLS LAST);
+        """
+    )
+    logger.info(f"Indexes created")
+
+    if Device.select().count() == 0:
+        import devices_from_csv
+
+        devices_from_csv.main()
 
 
 def seed_db():
