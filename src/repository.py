@@ -133,6 +133,23 @@ def db_init():
             (time_scraped DESC NULLS FIRST, deveui ASC NULLS LAST);
         """
     )
+    db.execute_sql(
+        """
+            CREATE INDEX IF NOT EXISTS deveui
+            ON public.scrape USING btree
+            (deveui ASC NULLS LAST);
+        """
+    )
+    db.execute_sql(
+        """
+            CREATE INDEX IF NOT EXISTS time_scraped_clustered
+            ON public.scrape USING btree
+            (time_scraped DESC NULLS FIRST);
+
+            ALTER TABLE IF EXISTS public.scrape
+            CLUSTER ON time_scraped_clustered;
+        """
+    )
     logger.info(f"Indexes created")
 
     if Device.select().count() == 0:
