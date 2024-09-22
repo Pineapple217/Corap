@@ -19,7 +19,11 @@ logger = logging.getLogger(__name__)
 def db_init():
     logger.info("Checking for database")
     with psycopg.connect(
-        user=DB_USER, password=DB_PASSWORD, host=DB_HOST, port=DB_PORT
+        user=DB_USER,
+        password=DB_PASSWORD,
+        host=DB_HOST,
+        port=DB_PORT,
+        dbname="postgres",
     ) as conn:
         conn.autocommit = True
         db_name = conn.execute(
