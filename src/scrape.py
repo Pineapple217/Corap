@@ -48,7 +48,7 @@ def scrape():
         for i in range(MAX_SCRAPE_RETRIES):
             for j in range(MAX_REQUEST_RETRIES):
                 try:
-                    r = requests.post(
+                    r = requests.get(
                         URL, params=query, timeout=TIMEOUT_TIME, headers=HEADERS
                     )
                     break
