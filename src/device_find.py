@@ -1,13 +1,11 @@
 from concurrent.futures import ThreadPoolExecutor
 import logging
 import os
-import signal
 import requests
 from bs4 import BeautifulSoup
 import csv
 from datetime import datetime
 import hashlib
-import sys
 
 
 logger = logging.getLogger(__name__)

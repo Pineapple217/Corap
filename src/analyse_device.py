@@ -1,45 +1,116 @@
-from datetime import datetime, timedelta
 import logging
-import numpy as np
-
-import pandas as pd
-
-from repository import Scrape, Device, AnalysisDevice
+from repository import get_db
 
 logger = logging.getLogger(__name__)
 
 
-def defect_detect():
-    logger.info("Defect detect...")
+def generate_analysis():
+    logger.info("Making analysis...")
+    db = get_db()
 
-    delta_datetime = datetime.now() - timedelta(hours=24)
-    rows = Scrape.select().where(Scrape.time_scraped > delta_datetime).dicts()
-    scrapes = pd.DataFrame(rows).set_index(["deveui", "id"])
+    q = """
+        INSERT INTO device_analyses (device_id, name, value, priority, updated_at)
+        SELECT
+            d.deveui AS device_id,
+            '{n}' AS name,
+            d.v AS value,
+            {p} as priority,
+            NOW() as updated_at
+        FROM (
+            {q}
+        ) AS d
+        ON CONFLICT (device_id, name)
+        DO UPDATE SET
+            value = EXCLUDED.value,
+            updated_at = EXCLUDED.updated_at,
+            priority = EXCLUDED.priority;
+    """
+    query_get_max_24h = """
+        SELECT
+            max({t}) AS v,
+            deveui
+        FROM scrapes
+        WHERE scraped_at > NOW() - interval '24h'
+        GROUP BY deveui
+    """
+    db.execute(
+        q.format(
+            n="max_co2_24h",
+            q=query_get_max_24h.format(t="co2"),
+            p=10,
+        )
+    )
+    db.execute(
+        q.format(
+            n="max_temp_24h",
+            q=query_get_max_24h.format(t="temp"),
+            p=10,
+        )
+    )
+    db.execute(
+        q.format(
+            n="max_humidity_24h",
+            q=query_get_max_24h.format(t="humi"),
+            p=1000000,
+        )
+    )
 
-    defects = []
-    for dev_id, dev_df in scrapes.groupby(level=0):
-        logger.info(f"Checking {dev_id}")
-        if not np.all(dev_df["temp"] == dev_df["temp"].iloc[0]):
-            continue
-        if not np.all(dev_df["co2"] == dev_df["co2"].iloc[0]):
-            continue
-        if not np.all(dev_df["humidity"] == dev_df["humidity"].iloc[0]):
-            continue
-        defects.append(dev_id)
-    logger.info(f"Defective devices (count: {len(defects)}): {defects}")
-    return defects
-
-
-def analyse():
-    olds = [r.id for r in AnalysisDevice.select()]
-    defective_devices_ids = defect_detect()
-    for device in Device.select(Device.deveui):
-        if device.deveui in defective_devices_ids:
-            AnalysisDevice.create(device=device, is_defect=True)
-        else:
-            AnalysisDevice.create(device=device, is_defect=False)
-    AnalysisDevice.delete().where(AnalysisDevice.id.in_(olds)).execute()
-
-
-if __name__ == "__main__":
-    analyse()
+    db.execute(
+        q.format(
+            n="is_defect",
+            q="""
+                SELECT
+                    MAX(co2) = MIN(co2) and
+                    MAX(temp) = MIN(temp) and
+                    MAX(humi) = MIN(humi) as v,
+                    deveui
+                FROM scrapes
+                GROUP BY deveui
+            """,
+            p=1000,
+        )
+    )
+    logger.info("Making/updating materialized view")
+    db.execute(
+        """
+            DO $$
+            DECLARE
+                cols text;
+                query text;
+            BEGIN
+                SELECT string_agg(quote_ident(name) || ' text', ', ')
+                INTO cols
+                FROM (
+                    SELECT name
+                    FROM (SELECT DISTINCT name, priority FROM device_analyses) AS o
+                    ORDER BY priority DESC
+                ) AS o;
+                
+                BEGIN
+                    EXECUTE 'DROP MATERIALIZED VIEW IF EXISTS device_analysis_summary';
+                    query := format('
+                        CREATE MATERIALIZED VIEW device_analysis_summary AS
+                        SELECT *
+                        FROM crosstab(
+                            ''SELECT d.deveui, da.name, da.value
+                            FROM devices d
+                            LEFT JOIN device_analyses da ON d.deveui = da.device_id
+                            ORDER BY d.deveui, da.name'',
+                            ''SELECT name
+                            FROM (SELECT DISTINCT name, priority FROM device_analyses) AS o
+                            ORDER BY priority DESC''
+                        ) AS ct(deveui text, %s);
+                    ', cols);
+                    EXECUTE query;
+                EXCEPTION
+                    WHEN OTHERS THEN
+                        RAISE NOTICE 'Error creating materialized view: %', SQLERRM;
+                        ROLLBACK;
+                        RETURN;
+                END;
+            END $$;
+        """
+    )
+    db.commit()
+    db.close()
+    logger.info("analysis are done")

@@ -1,15 +1,16 @@
 import datetime
+import inspect
 import logging
 import time
 import argparse
-from scrape import scrape
-from device_find import device_find
 from dotenv import load_dotenv
-from devices_from_csv import main as import_devices
 
-from repository import db_init, close_db
+from device_find import device_find
+from scrape import scrape
 from device_polling import polling_test
-from scheduler import run_scheduler
+from scheduler import start_scheduler
+from analyse_device import generate_analysis
+from stats import generate_stats
 
 load_dotenv()
 
@@ -21,6 +22,8 @@ logging.basicConfig(
     ],
 )
 logger = logging.getLogger(__name__)
+
+from repository import db_init
 
 
 def main():
@@ -38,16 +41,22 @@ def main():
         "polling_test", help="Tests device polling rate"
     ).set_defaults(func=polling_test)
 
-    subparsers.add_parser(
-        "import_devices", help="Imports devices form csv"
-    ).set_defaults(func=import_devices)
-
-    subparsers.add_parser("scheduler", help="Run the scheduler").set_defaults(
-        func=run_scheduler
+    sp = subparsers.add_parser("scheduler", help="Run the scheduler")
+    sp.add_argument(
+        "-f", action="store_true", help="Force scheduler to schedule immediately"
     )
+    sp.set_defaults(func=start_scheduler)
 
     subparsers.add_parser("db_init", help="Create database and tables").set_defaults(
         func=db_init
+    )
+
+    subparsers.add_parser("gen_analysis", help="Run all analysis").set_defaults(
+        func=generate_analysis
+    )
+
+    subparsers.add_parser("gen_stats", help="Run all stats").set_defaults(
+        func=generate_stats
     )
 
     args = parser.parse_args()
@@ -55,7 +64,11 @@ def main():
     if not hasattr(args, "func"):
         parser.print_help()
         return
-    args.func()
+
+    if len(inspect.signature(args.func).parameters) == 0:
+        args.func()
+    else:
+        args.func(args)
 
     end = time.time()
     total_time = end - start

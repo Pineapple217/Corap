@@ -1,9 +1,8 @@
-from datetime import datetime, timedelta
+import csv
 import logging
 import os
-from peewee import *
 from dotenv import load_dotenv
-import psycopg2
+import psycopg
 
 load_dotenv()
 
@@ -12,164 +11,157 @@ DB_PORT = os.getenv("DB_PORT")
 DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
 DB_DATABASE = os.getenv("DB_DATABASE")
-# TIMEZONE = os.getenv("TIMEZONE")
-
+TIMEZONE = os.getenv("TIMEZONE")
+DB_DATABASE = "hihi"
 
 logger = logging.getLogger(__name__)
 
 
-db = PostgresqlDatabase(
-    host=DB_HOST, port=DB_PORT, user=DB_USER, password=DB_PASSWORD, database=DB_DATABASE
-)
-
-
-class BaseModel(Model):
-    class Meta:
-        database = db
-
-
-class Scrape(BaseModel):
-    id = AutoField(primary_key=True)
-    batch_id = IntegerField()
-    deveui = CharField()
-    co2 = SmallIntegerField()
-    temp = DecimalField(max_digits=4, decimal_places=1)
-    humidity = SmallIntegerField()
-    time_updated = DateTimeField()
-    time_scraped = DateTimeField(default=datetime.now)
-
-    def get_missed_data(start_time, end_time, distinct=True):
-        columns = (
-            "DISTINCT ON (current.deveui, previous.time_updated)" if distinct else ""
-        )
-        cursor = db.execute_sql(
-            f"""
-        SELECT
-            {columns}
-            previous.deveui AS deveui,
-            previous.time_updated AS previous_time_updated,
-            current.time_updated AS current_time_updated
-        FROM
-            scrape AS current
-        LEFT JOIN
-            scrape AS previous ON previous.deveui = current.deveui
-            AND previous.time_updated = (
-                SELECT MAX(time_updated)
-                FROM scrape
-                WHERE deveui = current.deveui
-                AND time_updated < current.time_updated
-            )
-        WHERE
-            current.time_updated - previous.time_updated > interval '15 minutes'
-            AND current.time_updated >= %s
-            AND current.time_updated <= %s
-        ORDER BY
-		    current.deveui, previous.time_updated;
-        """,
-            (
-                end_time.strftime("%Y-%m-%d %H:%M:%S"),
-                start_time.strftime("%Y-%m-%d %H:%M:%S"),
-            ),
-        )
-        return cursor.fetchall()
-
-    class Meta:
-        db_table = "scrape"
-
-    def __str__(self):
-        return self.id + " | " + self.deveui
-
-    def __repr__(self) -> str:
-        return (
-            f"Scrape(id={self.id}, batch_id={self.batch_id}, deveui={self.deveui}, co2={self.co2}, temp={self.temp}, "
-            f"humidity={self.humidity}, time_updated={self.time_updated}, time_scraped={self.time_scraped})"
-        )
-
-
-class Device(BaseModel):
-    deveui = CharField(max_length=16, primary_key=True)
-    name = CharField()
-    hashedname = CharField(max_length=64)
-
-    def url(self):
-        return f"https://education.thingsflow.eu/IAQ/DeviceByQR?hashedname={self.hashedname}"
-
-
-class AnalysisDevice(BaseModel):
-    device = ForeignKeyField(Device)
-    inserted_at = DateTimeField(default=datetime.now)
-    is_defect = BooleanField(default=False)
-
-    class Meta:
-        db_table = "analysis_devices"
-
-
-class AnalysisMissedData(BaseModel):
-    deveui = CharField()
-    time_updated = DateTimeField()
-    time_scraped = DateTimeField()
-
-    class Meta:
-        db_table = "analysis_missed_data"
-
-
 def db_init():
-    # db.set_time_zone(TIMEZONE)
+    logger.info("Checking for database")
+    with psycopg.connect(
+        user=DB_USER, password=DB_PASSWORD, host=DB_HOST, port=DB_PORT
+    ) as conn:
+        conn.autocommit = True
+        db_name = conn.execute(
+            "SELECT datname FROM pg_catalog.pg_database WHERE lower(datname) = %s;",
+            (DB_DATABASE,),
+        ).fetchone()
+        if db_name is not None and db_name[0] == DB_DATABASE:
+            logger.info(f"Database found: '{db_name[0]}'")
+        else:
+            logger.info(f"Database not found, creating databse: '{DB_DATABASE}'")
+            conn.execute(f"CREATE DATABASE {DB_DATABASE};")
 
-    db.create_tables([Scrape, Device, AnalysisDevice], safe=True)
-    logger.info(f"Tables created successfully")
+    conn = psycopg.connect(
+        user=DB_USER,
+        password=DB_PASSWORD,
+        host=DB_HOST,
+        port=DB_PORT,
+        dbname=DB_DATABASE,
+    )
+
+    logger.info("Creating tables")
+    conn.execute(
+        """
+            CREATE TABLE IF NOT EXISTS devices
+            (
+                deveui character varying(16) NOT NULL,
+                name text NOT NULL,
+                hashedname character varying(64) NOT NULL,
+                PRIMARY KEY (deveui)
+            );
+        """
+    )
+    conn.execute(
+        """
+            CREATE TABLE IF NOT EXISTS scrapes
+            (
+                id bigserial NOT NULL,
+                batch_id integer NOT NULL,
+                deveui character varying(16) NOT NULL,
+                co2 smallint NOT NULL,
+                temp numeric(4, 1) NOT NULL,
+                humi smallint NOT NULL,
+                updated_at timestamp with time zone NOT NULL,
+                scraped_at timestamp with time zone NOT NULL DEFAULT NOW(),
+                PRIMARY KEY (id)
+            );
+        """
+    )
+    conn.execute(
+        """
+            CREATE TABLE IF NOT EXISTS device_analyses
+            (
+                id serial NOT NULL,
+                device_id character varying(16) NOT NULL,
+                name text NOT NULL,
+                value text NOT NULL,
+                priority integer NOT NULL DEFAULT 0,
+                updated_at timestamp with time zone NOT NULL DEFAULT NOW(),
+                PRIMARY KEY (id),
+                CONSTRAINT unique_device_name UNIQUE (device_id, name)
+            );
+        """
+    )
+    conn.execute(
+        """
+            CREATE TABLE IF NOT EXISTS scrape_stats
+            (
+                id serial NOT NULL,
+                name text NOT NULL,
+                value text NOT NULL,
+                priority integer NOT NULL DEFAULT 0,
+                updated_at timestamp with time zone NOT NULL DEFAULT NOW(),
+                PRIMARY KEY (id),
+                CONSTRAINT unique_name UNIQUE (name)
+            );
+        """
+    )
+
     logger.info(f"Creating indexes")
-    db.execute_sql(
+    conn.execute(
         """
-            CREATE INDEX IF NOT EXISTS time_updated
-            ON public.scrape USING btree
-            (time_updated ASC NULLS LAST);
-        """
-    )
-    db.execute_sql(
-        """
-            CREATE INDEX IF NOT EXISTS time_scraped
-            ON public.scrape USING btree
-            (time_scraped DESC NULLS FIRST, deveui ASC NULLS LAST);
+            CREATE INDEX IF NOT EXISTS updated_at
+            ON public.scrapes USING btree
+            (updated_at ASC NULLS LAST);
         """
     )
-    db.execute_sql(
+    conn.execute(
+        """
+            CREATE INDEX IF NOT EXISTS scraped_at
+            ON public.scrapes USING btree
+            (scraped_at DESC NULLS FIRST, deveui ASC NULLS LAST);
+        """
+    )
+    conn.execute(
         """
             CREATE INDEX IF NOT EXISTS deveui
-            ON public.scrape USING btree
+            ON public.scrapes USING btree
             (deveui ASC NULLS LAST);
         """
     )
-    db.execute_sql(
+    conn.execute(
         """
-            CREATE INDEX IF NOT EXISTS time_scraped_clustered
-            ON public.scrape USING btree
-            (time_scraped DESC NULLS FIRST);
+            CREATE INDEX IF NOT EXISTS scraped_at_clustered
+            ON public.scrapes USING btree
+            (scraped_at DESC NULLS FIRST);
 
-            ALTER TABLE IF EXISTS public.scrape
-            CLUSTER ON time_scraped_clustered;
+            ALTER TABLE IF EXISTS public.scrapes
+            CLUSTER ON scraped_at_clustered;
         """
     )
-    logger.info(f"Indexes created")
 
-    if Device.select().count() == 0:
-        import devices_from_csv
+    count = conn.execute("SELECT COUNT(*) FROM devices").fetchone()[0]
+    if count == 0:
+        logger.info("No devices found, importing from csv")
+        count = 0
+        with open("./devs.csv", "r") as file:
+            reader = csv.DictReader(file)
+            cursor = conn.cursor()
+            with cursor.copy(
+                "COPY devices (name, hashedname, deveui) FROM STDIN"
+            ) as copy:
+                for d in reader:
+                    copy.write_row(list(d.values()))
+                    count += 1
+            conn.commit()
+            cursor.close()
+        logger.info(f"Imported {count} device(s)")
 
-        devices_from_csv.main()
+    conn.commit()
+    conn.close()
 
 
-def seed_db():
-    pass
-
-
-def close_db():
-    logger.info("clossing db")
-    db.close()
-
-
-def get_db_size() -> str:
-    return str(
-        db.execute_sql(
-            f"SELECT pg_size_pretty(pg_database_size('{DB_DATABASE}'));"
-        ).fetchone()[0]
+def get_db() -> psycopg.Connection:
+    conn = psycopg.connect(
+        user=DB_USER,
+        password=DB_PASSWORD,
+        host=DB_HOST,
+        port=DB_PORT,
+        dbname=DB_DATABASE,
+        row_factory=psycopg.rows.dict_row,
+        autocommit=True,
     )
+    conn.execute(f"SET timezone TO '{TIMEZONE}'")
+    return conn

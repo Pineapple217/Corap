@@ -1,56 +1,58 @@
+from datetime import datetime, timedelta
 import logging
-import os
-import threading
-from dotenv import load_dotenv
-from sqlalchemy import URL
-from apscheduler.schedulers.blocking import BlockingScheduler
+import sched
+import time
+from concurrent.futures import ThreadPoolExecutor
+
 import analyse_device
-
-
 from scrape import scrape
+import stats
 
 logger = logging.getLogger(__name__)
 
+scheduler = sched.scheduler(time.time, time.sleep)
 
-load_dotenv()
-DB_HOST = os.getenv("DB_HOST")
-DB_PORT = os.getenv("DB_PORT")
-DB_USER = os.getenv("DB_USER")
-DB_PASSWORD = os.getenv("DB_PASSWORD")
-DB_DATABASE = os.getenv("DB_DATABASE")
-
-db_url = URL.create(
-    "postgresql+psycopg2",
-    username=DB_USER,
-    password=DB_PASSWORD,
-    host=DB_HOST,
-    database=DB_DATABASE,
-    port=DB_PORT,
-)
-scheduler = BlockingScheduler()
+INTERVAL = 15
+MAX_WORKERS = 4
 
 
-def job():
-    print("I'm working...")
+def run():
+    scrape()
+    time.sleep(1)
+    analyse_device.generate_analysis()
+    time.sleep(1)
+    stats.generate_stats()
 
 
-def run_threaded(job_func):
-    job_thread = threading.Thread(target=job_func)
-    job_thread.start()
+def job(run_moment, pool: ThreadPoolExecutor, func):
+    n_run_moment = run_moment + timedelta(minutes=INTERVAL)
+    logger.info(f"Schedulling next job for: {n_run_moment}")
+    scheduler.enterabs(
+        time.mktime(n_run_moment.timetuple()),
+        1,
+        job,
+        argument=(n_run_moment, pool, func),
+    )
+
+    logger.info("Running job")
+    pool.submit(func)
 
 
-def run_scheduler():
+def start_scheduler(args):
     logger.info("Running scheduler")
-    scheduler.add_jobstore("sqlalchemy", url=db_url)
-    scheduler.add_job(
-        scrape, "cron", minute="*/15", name="scrape", id="100", replace_existing=True
+    now = datetime.now()
+    x = now.minute // INTERVAL
+    minu = (x * INTERVAL) + INTERVAL
+    run_moment = datetime(now.year, now.month, now.day, now.hour, 0, 0, 0) + timedelta(
+        minutes=minu
     )
-    scheduler.add_job(
-        analyse_device.analyse,
-        "cron",
-        minute="5-59/15",
-        name="analyse_device",
-        id="1000",
-        replace_existing=True,
+    logger.info(f"Next run on: {run_moment}")
+
+    pool = ThreadPoolExecutor(max_workers=MAX_WORKERS)
+    if args.f:
+        pool.submit(run)
+
+    scheduler.enterabs(
+        time.mktime(run_moment.timetuple()), 1, job, argument=(run_moment, pool, run)
     )
-    scheduler.start()
+    scheduler.run()

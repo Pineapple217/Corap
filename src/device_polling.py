@@ -1,7 +1,5 @@
-import csv
 import datetime
 import logging
-import re
 from bs4 import BeautifulSoup
 import requests
 import time
