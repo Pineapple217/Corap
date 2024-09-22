@@ -1,4 +1,8 @@
-FROM python:3.11-bullseye
+FROM python:3.11.10-alpine3.20
+
+ARG GIT_COMMIT=unspecified
+LABEL org.opencontainers.image.version=$GIT_COMMIT
+LABEL org.opencontainers.image.source=https://github.com/Pineapple217/Corap
 
 RUN pip install --upgrade pip
 
