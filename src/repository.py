@@ -135,6 +135,44 @@ def db_init():
         """
     )
 
+    logger.info("Creating user(s)")
+    conn.execute(
+        """
+            DO $$
+            BEGIN
+                IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'readaccess') THEN
+                    CREATE ROLE readaccess;
+                END IF;
+            END $$;
+
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 
+                    FROM information_schema.role_table_grants 
+                    WHERE grantee = 'readaccess' 
+                    AND privilege_type = 'SELECT'
+                    AND table_schema = 'public'
+                ) THEN
+                    GRANT USAGE ON SCHEMA public TO readaccess;
+                    GRANT SELECT ON ALL TABLES IN SCHEMA public TO readaccess;
+                    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO readaccess;
+                END IF;
+            END $$;
+        """
+    )
+    conn.execute(
+        f"""
+            DO $$
+            BEGIN
+                IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'read_only') THEN
+                    CREATE USER read_only WITH PASSWORD '{DB_PASSWORD}';
+                    GRANT readaccess TO read_only;
+                END IF;
+            END $$;
+        """
+    )
+
     count = conn.execute("SELECT COUNT(*) FROM devices").fetchone()[0]
     if count == 0:
         logger.info("No devices found, importing from csv")
