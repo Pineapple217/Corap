@@ -17,11 +17,14 @@ MAX_WORKERS = 4
 
 
 def run():
-    scrape()
-    time.sleep(1)
-    analyse_device.generate_analysis()
-    time.sleep(1)
-    stats.generate_stats()
+    try:
+        scrape()
+        time.sleep(1)
+        analyse_device.generate_analysis()
+        time.sleep(1)
+        stats.generate_stats()
+    except Exception as e:
+        logger.error(e)
 
 
 def job(run_moment, pool: ThreadPoolExecutor, func):
