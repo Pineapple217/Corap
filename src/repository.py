@@ -173,6 +173,8 @@ def db_init():
         """
     )
 
+    conn.execute("CREATE EXTENSION IF NOT EXISTS tablefunc;")
+
     count = conn.execute("SELECT COUNT(*) FROM devices").fetchone()[0]
     if count == 0:
         logger.info("No devices found, importing from csv")
