@@ -37,21 +37,21 @@ def generate_analysis():
         q.format(
             n="max_co2_24h",
             q=query_get_max_24h.format(t="co2"),
-            p=10,
+            p=12,
         )
     )
     db.execute(
         q.format(
             n="max_temp_24h",
             q=query_get_max_24h.format(t="temp"),
-            p=10,
+            p=13,
         )
     )
     db.execute(
         q.format(
             n="max_humidity_24h",
             q=query_get_max_24h.format(t="humi"),
-            p=1000000,
+            p=11,
         )
     )
 
@@ -67,7 +67,7 @@ def generate_analysis():
                 FROM scrapes
                 GROUP BY deveui
             """,
-            p=1000,
+            p=1_000_000,
         )
     )
     logger.info("Making/updating materialized view")
@@ -76,7 +76,8 @@ def generate_analysis():
             DO $$
             DECLARE
                 cols text;
-                query text;
+                query1 text;
+                query2 text;
             BEGIN
                 SELECT string_agg(quote_ident(name) || ' text', ', ')
                 INTO cols
@@ -85,11 +86,10 @@ def generate_analysis():
                     FROM (SELECT DISTINCT name, priority FROM device_analyses) AS o
                     ORDER BY priority DESC
                 ) AS o;
-                
+
                 BEGIN
-                    EXECUTE 'DROP MATERIALIZED VIEW IF EXISTS device_analysis_summary';
-                    query := format('
-                        CREATE MATERIALIZED VIEW device_analysis_summary AS
+                    DROP MATERIALIZED VIEW IF EXISTS device_analysis_summary;
+                    query1 := format('
                         SELECT *
                         FROM crosstab(
                             ''SELECT d.deveui, da.name, da.value
@@ -99,9 +99,59 @@ def generate_analysis():
                             ''SELECT name
                             FROM (SELECT DISTINCT name, priority FROM device_analyses) AS o
                             ORDER BY priority DESC''
-                        ) AS ct(deveui text, %s);
+                        ) AS ct(deveui text, %s)
                     ', cols);
-                    EXECUTE query;
+                    SELECT string_agg('ala.' || quote_ident(name), ', ')
+                    INTO cols
+                    FROM (
+                        SELECT name
+                        FROM (SELECT DISTINCT name, priority FROM device_analyses) AS o
+                        ORDER BY priority DESC
+                    ) AS o;
+                    query2 := format('
+                        CREATE MATERIALIZED VIEW device_analysis_summary AS
+                        WITH LatestScrape AS (
+                            SELECT
+                                d.deveui,
+                                MAX(s.scraped_at) AS latest_time_scraped
+                            FROM
+                                devices d
+                                LEFT JOIN scrapes s ON d.deveui = s.deveui AND s.scraped_at >= NOW() - ''1 hour\''::INTERVAL
+                            GROUP BY
+                                d.deveui
+                        ),
+                        RankedScrapeData AS (
+                            SELECT
+                                d.deveui,
+                                d.name,
+                                d.hashedname,
+                                COALESCE(s.temp, -1) AS temp,
+                                COALESCE(s.co2, -1) AS co2,
+                                COALESCE(s.humi, -1) AS humidity,
+                                COALESCE(s.scraped_at, NOW()) AS scraped_at,
+                                ROW_NUMBER() OVER (PARTITION BY d.deveui ORDER BY s.scraped_at DESC) AS rn
+                            FROM
+                                devices d
+                                LEFT JOIN scrapes s ON d.deveui = s.deveui AND s.scraped_at = (SELECT latest_time_scraped FROM LatestScrape WHERE deveui = d.deveui)
+                        ),
+                        ala AS (
+                            %s
+                        )
+                        SELECT
+                            r.deveui,
+                            name,
+                            hashedname,
+                            temp,
+                            co2,
+                            humidity,
+                            %s
+                        FROM
+                            RankedScrapeData as r
+                        JOIN ala on r.deveui = ala.deveui
+                        WHERE
+                            rn = 1;
+                    ', query1, cols);
+                    EXECUTE query2;
                 EXCEPTION
                     WHEN OTHERS THEN
                         RAISE NOTICE 'Error creating materialized view: %', SQLERRM;

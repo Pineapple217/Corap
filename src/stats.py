@@ -29,7 +29,7 @@ def generate_stats():
     db.execute(
         q.format(
             n="scrape count",
-            q="SELECT COUNT(id) FROM scrapes",
+            q="SELECT replace(to_char(COUNT(id), 'FM999G999G999G999G999G999G999G999'), ',', ' ') FROM scrapes",
             p=12,
         )
     )
@@ -37,7 +37,7 @@ def generate_stats():
     db.execute(
         q.format(
             n="batch count",
-            q="SELECT MAX(batch_id) from scrapes",
+            q="SELECT replace(to_char(MAX(batch_id), 'FM999G999G999G999G999G999G999G999'), ',', ' ') from scrapes",
             p=13,
         )
     )
